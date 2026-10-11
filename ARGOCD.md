@@ -68,7 +68,7 @@ Concretely, ArgoCD gives you:
 - **Self-healing** — with automated sync + `selfHeal: true`, ArgoCD
   reverts manual changes automatically. The cluster becomes effectively
   read-only for humans. (Note: `selfHeal` only acts under automated
-  sync; with manual sync it does nothing — see §4b.)
+  sync; with manual sync it does nothing — see §5b.)
 - **Pruning** — with `prune: true`, deleting a file from git deletes the
   object from the cluster. No more orphaned Services like the ones we
   cleaned up by hand.
@@ -237,9 +237,74 @@ cert, same as the other HTTPS routes).
 
 ---
 
-## 4. Pointing it at a repo
+## 4. Install the Doppler operator (before creating any app)
 
-### 4a. Register the repository
+Every Application in `apps/` syncs `DopplerSecret` CRs, and every Deployment
+mounts its env from the Doppler-managed Secrets via `secretKeyRef` -- 100% of
+variables come from Doppler, there are no ConfigMaps. Without the operator,
+the synced `DopplerSecret` objects resolve to nothing and every pod fails at
+startup (zod validation, exit 1). So the operator goes in first, once per
+cluster rebuild, before the first SYNC.
+
+Two-machine model, same as everywhere: `doppler` runs on your LAPTOP,
+`kubectl` runs on the CONTROL PLANE (`K8S_CP_CONN` itself comes from
+Doppler: `doppler secrets get K8S_CP_CONN --plain --project astrolumina
+--config <dev|stg|prd>`).
+
+```bash
+export K8S_CP_CONN=$(doppler secrets get K8S_CP_CONN --plain --project astrolumina --config prd)
+
+# The operator itself (once per cluster rebuild).
+ssh "$K8S_CP_CONN" -- "kubectl apply -f https://github.com/DopplerHQ/kubernetes-operator/releases/latest/download/recommended.yaml"
+```
+
+The operator authenticates per environment with a token Secret that is
+created imperatively (NOT in git), one per Doppler config:
+
+| Doppler config | Token Secret (imperative, NOT in git) | App namespace | Managed Secrets |
+|---|---|---|---|
+| `dev` | `doppler-token-dev` | `astrolumina-dev` | `env-frontend-secrets`, `env-astrology-api-secrets`, `env-booking-api-secrets`, `env-payment-api-secrets` |
+| `stg` | `doppler-token-stg` | `astrolumina-staging` | same 4 names |
+| `prd` | `doppler-token-prd` | `astrolumina-prod` | same 4 names |
+
+The token Secrets themselves all live in `doppler-operator-system` (the
+operator's namespace); the "App namespace" column is where the synced
+`env-*` Secrets land.
+
+Create each token from the `DOPPLER_SERVICE_TOKEN` Doppler secret (fetch it
+like any other key, no dashboard copy-paste), e.g. for development:
+
+```bash
+export DOPPLER_SERVICE_TOKEN=$(doppler secrets get DOPPLER_SERVICE_TOKEN --plain --project astrolumina --config dev)
+ssh "$K8S_CP_CONN" -- 'kubectl create secret generic doppler-token-dev -n doppler-operator-system --from-literal=serviceToken='"$DOPPLER_SERVICE_TOKEN"' --dry-run=client -o yaml | kubectl apply -f -'
+```
+
+Repeat with `--config stg` / `--config prd` for the other two tokens.
+Then verify the sync before touching ArgoCD:
+
+```bash
+ssh "$K8S_CP_CONN" -- "kubectl get secrets -n astrolumina-dev | grep '^env-'"
+```
+
+You should see the 4 `env-*` Secrets populated. Two things worth knowing:
+
+- Re-applying is a no-op on secrets, so once the tokens exist ArgoCD can
+  sync the `DopplerSecret` CRs freely without ever overwriting values.
+- The Deployments carry the `secrets.doppler.com/reload` annotation, so
+  pods restart automatically whenever a synced value changes in Doppler.
+- If a pod still fails at startup after SYNC, the fix is always "add the
+  missing key in Doppler" -- the manifests plus the `01-doppler-secrets.yaml`
+  sync lists define the exact schema.
+
+Full command sequences with expected outputs per environment live in the
+Kubernetes repo (`README.md` -> "Secrets and Doppler", plus each
+environment's own `README.md`).
+
+---
+
+## 5. Pointing it at a repo
+
+### 5a. Register the repository
 
 **Public repo (HTTPS, no credentials):** register it directly — either in
 the UI (Settings → Repositories → Connect Repo) or declaratively:
@@ -264,7 +329,7 @@ GitHub deploy key (read-only), store the private half in the same Secret
 shape with `sshPrivateKey` instead of nothing. ArgoCD uses it for
 `git clone` only — it never pushes.
 
-### 4b. Create the production Application (staging first, production last)
+### 5b. Create the production Application (staging first, production last)
 
 An `Application` is a small CR: *where to read* (repo + path + revision)
 × *where to write* (cluster + namespace) × *how to sync*.
@@ -315,7 +380,7 @@ For blue/green promotion the flow stays git-native: flip the
 `variant: blue|green` selector in `53-live-services.yaml`, tag, update
 `targetRevision`, sync.
 
-### 4c. What ArgoCD expects to find (supported formats)
+### 5c. What ArgoCD expects to find (supported formats)
 
 ArgoCD inspects the `path` and picks a toolchain automatically, in this
 order:
@@ -345,7 +410,7 @@ Practical rules for the layout:
 
 ---
 
-## 5. Day-2 operations (cheat-sheet)
+## 6. Day-2 operations (cheat-sheet)
 
 ```bash
 # Sync status of everything, one shot.

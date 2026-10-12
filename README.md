@@ -2,7 +2,7 @@
 
 GitOps bootstrap for the AstroLumina platform on RKE2: install prerequisites
 for ArgoCD plus the `Application` that syncs
-[AstroLumina-Kubernetes](https://github.com/AstroLumina-by-Carmen-Ilie/AstroLumina-Kubernetes)
+[AstroLumina-Kubernetes](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-Kubernetes)
 (`HEAD` of `main`) into the cluster with **manual** sync.
 
 Theory and day-2 operations live in [ARGOCD.md](./ARGOCD.md) -- read its

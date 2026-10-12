@@ -55,7 +55,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/AstroLumina-by-Carmen-Ilie/AstroLumina-Kubernetes.git
+        repoURL: https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-Kubernetes.git
         targetRevision: HEAD
         path: '{{path}}'
       destination:

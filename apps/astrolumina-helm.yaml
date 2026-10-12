@@ -51,7 +51,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/AstroLumina-by-Carmen-Ilie/AstroLumina-Helm.git
+        repoURL: https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-Helm.git
         targetRevision: HEAD
         path: charts/astrolumina
         helm:

@@ -15,9 +15,9 @@
 # tags in git (a rollback is a revert).
 #
 # Sync is MANUAL on all three (no `automated` block on purpose): press SYNC
-# in the UI per change. `prune: true` deletes from the cluster objects
-# removed from git. `CreateNamespace: true` creates the namespace if missing
-# (the build also contains the Namespace object itself).
+# in the UI per change. Tick PRUNE at sync time to delete from the cluster
+# objects removed from git. `CreateNamespace: true` creates the namespace if
+# missing (the build also contains the Namespace object itself).
 #
 # PREREQUISITES before the first SYNC: the Doppler operator (it resolves the
 # DopplerSecret CRs), the ghcr image-pull secret created imperatively, the
@@ -39,13 +39,13 @@ spec:
         elements:
           - env: dev
             path: development
-            namespace: astrolumina-dev
+            namespace: astrolumina-development
           - env: staging
             path: staging
             namespace: astrolumina-staging
           - env: production
             path: production
-            namespace: astrolumina-prod
+            namespace: astrolumina-production
   template:
     metadata:
       name: 'astrolumina-kubernetes-{{env}}'
@@ -62,6 +62,5 @@ spec:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'
       syncPolicy:
-        prune: true
         syncOptions:
           - CreateNamespace=true

@@ -103,7 +103,17 @@ in its own Redis + etcd-backed CRDs; in a lab, chart defaults are fine).
 ```bash
 export K8S_CP_CONN=$(doppler secrets get K8S_CP_CONN --plain --project astrolumina --config prd)
 
-# Helm CLI first (RKE2 ships the controller, not the CLI — installed once
+# Fresh VM? RKE2 hides its kubectl outside the default PATH and ships no
+# kubeconfig for your user -- run once per control plane, afterwards plain
+# `kubectl` works in every `ssh` below (same schema as the Kubernetes
+# repo environment READMEs):
+ssh "$K8S_CP_CONN" -- "sudo ln -sf /var/lib/rancher/rke2/bin/kubectl /usr/local/bin/kubectl && mkdir -p ~/.kube && sudo cat /etc/rancher/rke2/rke2.yaml > ~/.kube/config && chmod 600 ~/.kube/config && kubectl get nodes"
+
+# Step 1. Namespace + RBAC grant, from this repo root (namespace `argocd`
+# plus the explicit cluster-admin grant for the ArgoCD service accounts):
+kubectl apply -k install/
+
+# Step 2. Helm CLI first (RKE2 ships the controller, not the CLI — installed once
 # per CP; the `||` skips it when `helm version` already answers):
 ssh "$K8S_CP_CONN" -- "helm version >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
 
@@ -145,17 +155,21 @@ ssh "$K8S_CP_CONN" -- "kubectl rollout status deploy/argocd-server -n argocd --t
 > upgrades are hands-free; across major chart versions, check the upstream
 > upgrade notes — CRDs sometimes need a manual refresh.
 
-### First login
+### Step 3. Set the admin password (script, from this repo root)
 
-The throwaway initial password is replaced at install time by
-`install/set-argocd-admin-password.sh` (step 3 in the README): it reads the
-pre-hashed bcrypt value `ARGOCD_ADMIN_PASSWORD_HASH` (preferred) or
-`ARGOCD_ADMIN_PASSWORD` from Doppler
-(`astrolumina`/`prd`), validates and normalizes it, patches only the password
-keys of `argocd-secret`, deletes the initial-password secret, and restarts the
-server. Generate the hash with `htpasswd -nbB admin` and store it in Doppler
-(a verbatim `admin:$2y$...` line works too). Log in as `admin` with the
-plaintext password behind the hash. Re-run the script for rotation.
+```bash
+export K8S_CP_CONN=$(doppler secrets get K8S_CP_CONN --plain --project astrolumina --config prd)
+./install/set-argocd-admin-password.sh
+```
+
+The script reads the pre-hashed bcrypt value `ARGOCD_ADMIN_PASSWORD_HASH`
+(preferred) or `ARGOCD_ADMIN_PASSWORD` from Doppler
+(`astrolumina`/`prd`), validates and normalizes it, patches only the
+password keys of `argocd-secret`, deletes the initial-password secret, and
+restarts the server. Generate the hash with `htpasswd -nbB admin` and store
+it in Doppler (a verbatim `admin:$2y$...` line works too). It needs the Helm
+release from step 2 (it waits for `argocd-server` to be ready). Re-run the
+script for rotation.
 
 Fallback (if the script was skipped): the generated password lives in a
 Secret (plaintext, base64):
@@ -167,7 +181,7 @@ ssh "$K8S_CP_CONN" -- "kubectl get secret argocd-initial-admin-secret -n argocd 
 Username is `admin`. Change it after first login
 (`argocd account update-password`, or via the UI under User Info).
 
-### Expose the UI through Traefik (HTTPS-only, like everything else)
+### Step 4. Expose the UI through Traefik (HTTPS-only, like everything else)
 
 Production and monitoring are HTTPS-only in this cluster, so the ArgoCD UI
 gets a `websecure` route with TLS (default Traefik cert in the lab —
@@ -209,6 +223,10 @@ cert, same as the other HTTPS routes).
 > The heredoc is quoted (`<<'EOF'`) so the backticks in `Host()` survive
 > the laptop shell; the pipe runs `kubectl apply` on the CP. Same trick as
 > the monitoring routes.
+
+> ArgoCD itself is now up: UI reachable, admin login works. What it syncs
+> (Doppler operator + the ApplicationSets in `apps/`) is the repo wiring in
+> the [README](./README.md) — do that next, before the first SYNC.
 
 ---
 
@@ -259,32 +277,10 @@ ssh "$K8S_CP_CONN" -- "kubectl apply -f https://github.com/DopplerHQ/kubernetes-
 ```
 
 The operator authenticates per environment with a token Secret that is
-created imperatively (NOT in git), one per Doppler config:
-
-| Doppler config | Token Secret (imperative, NOT in git) | App namespace | Managed Secrets |
-|---|---|---|---|
-| `dev` | `doppler-token-dev` | `astrolumina-dev` | `env-frontend-secrets`, `env-astrology-api-secrets`, `env-booking-api-secrets`, `env-payment-api-secrets` |
-| `stg` | `doppler-token-stg` | `astrolumina-staging` | same 4 names |
-| `prd` | `doppler-token-prd` | `astrolumina-prod` | same 4 names |
-
-The token Secrets themselves all live in `doppler-operator-system` (the
-operator's namespace); the "App namespace" column is where the synced
-`env-*` Secrets land.
-
-Create each token from the `DOPPLER_SERVICE_TOKEN` Doppler secret (fetch it
-like any other key, no dashboard copy-paste), e.g. for development:
-
-```bash
-export DOPPLER_SERVICE_TOKEN=$(doppler secrets get DOPPLER_SERVICE_TOKEN --plain --project astrolumina --config dev)
-ssh "$K8S_CP_CONN" -- 'kubectl create secret generic doppler-token-dev -n doppler-operator-system --from-literal=serviceToken='"$DOPPLER_SERVICE_TOKEN"' --dry-run=client -o yaml | kubectl apply -f -'
-```
-
-Repeat with `--config stg` / `--config prd` for the other two tokens.
-Then verify the sync before touching ArgoCD:
-
-```bash
-ssh "$K8S_CP_CONN" -- "kubectl get secrets -n astrolumina-dev | grep '^env-'"
-```
+created imperatively (NOT in git), one per Doppler config. The exact wiring
+for this repo -- which token per config, the apply sequence, and the verify
+step -- lives in the ArgoCD repo README ("Doppler" section); run it before
+the first SYNC.
 
 You should see the 4 `env-*` Secrets populated. Two things worth knowing:
 
@@ -295,10 +291,6 @@ You should see the 4 `env-*` Secrets populated. Two things worth knowing:
 - If a pod still fails at startup after SYNC, the fix is always "add the
   missing key in Doppler" -- the manifests plus the `01-doppler-secrets.yaml`
   sync lists define the exact schema.
-
-Full command sequences with expected outputs per environment live in the
-Kubernetes repo (`README.md` -> "Secrets and Doppler", plus each
-environment's own `README.md`).
 
 ---
 
@@ -358,7 +350,7 @@ spec:
     path: production                  # directory inside the repo
   destination:
     server: https://kubernetes.default.svc   # the local cluster
-    namespace: astrolumina-prod
+    namespace: astrolumina-production
   syncPolicy:
     prune: true                 # delete objects removed from git
     # no `automated` block yet = manual sync from the UI.

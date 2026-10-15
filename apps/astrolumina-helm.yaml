@@ -14,8 +14,9 @@
 # changing tags (a rollback is a revert).
 #
 # Sync is MANUAL on all three (no `automated` block on purpose): press SYNC
-# in the UI per change. `prune: true` deletes from the cluster objects
-# removed from git. `CreateNamespace: true` creates the namespace if missing.
+# in the UI per change. Tick PRUNE at sync time to delete from the cluster
+# objects removed from git. `CreateNamespace: true` creates the namespace if
+# missing.
 #
 # PREREQUISITES before the first SYNC: the Doppler operator, the Traefik CRDs
 # (IngressRoute, Middleware -- shipped with RKE2), the ghcr image-pull secret
@@ -34,13 +35,13 @@ spec:
     - list:
         elements:
           - env: dev
-            namespace: astrolumina-dev
-            valuesFile: values-dev.yaml
+            namespace: astrolumina-development
+            valuesFile: values-development.yaml
           - env: staging
             namespace: astrolumina-staging
             valuesFile: values-staging.yaml
           - env: production
-            namespace: astrolumina-prod
+            namespace: astrolumina-production
             valuesFile: values-production.yaml
   template:
     metadata:
@@ -63,6 +64,5 @@ spec:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'
       syncPolicy:
-        prune: true
         syncOptions:
           - CreateNamespace=true

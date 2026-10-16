@@ -1,6 +1,6 @@
 ---
 # ApplicationSet generating the three per-env Kustomize Applications
-# (astrolumina-kubernetes-dev/staging/production) from one template plus a
+# (astrolumina-kubernetes-development/staging/production) from one template plus a
 # List generator. ArgoCD stamps one Application per `elements` entry, so
 # adding a new env later means adding one list entry, not copying a whole
 # document. The stamped Applications keep the exact names used before, so the
@@ -37,7 +37,7 @@ spec:
   generators:
     - list:
         elements:
-          - env: dev
+          - env: development
             path: development
             namespace: astrolumina-development
           - env: staging

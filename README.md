@@ -96,14 +96,14 @@ environment's own `README.md`).
 ## Apps (the two ApplicationSets)
 
 - `apps/astrolumina-kubernetes.yaml` -- stamps
-  `astrolumina-kubernetes-dev/staging/production`. ArgoCD runs `kustomize
+  `astrolumina-kubernetes-development/staging/production`. ArgoCD runs `kustomize
   build` on the env directory and syncs the result. Staging/production
   carry the blue + green Deployments plus the `53-live-services.yaml`
   selectors -- a live flip is a git commit changing those selectors, then
   SYNC. Production image upgrades are commits changing tags in git (a
   rollback is a revert).
 - `apps/astrolumina-helm.yaml` -- stamps
-  `astrolumina-helm-dev/staging/production`. ArgoCD runs `helm template`
+  `astrolumina-helm-development/staging/production`. ArgoCD runs `helm template`
   with `values.yaml` plus the env file (later files win).
   Staging/production do blue/green via the per-service
   `blueGreen.liveColors` entries plus `imageTags.blue/green` in their

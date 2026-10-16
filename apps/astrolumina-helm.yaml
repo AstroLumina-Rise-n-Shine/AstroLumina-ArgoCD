@@ -1,6 +1,6 @@
 ---
 # ApplicationSet generating the three per-env Helm releases
-# (astrolumina-helm-dev/staging/production) from one template plus a List
+# (astrolumina-helm-development/staging/production) from one template plus a List
 # generator. ArgoCD stamps one Application per `elements` entry and runs
 # `helm template` with values.yaml plus the env file (later files win).
 # Adding a new env later means adding one list entry, not copying a whole
@@ -34,7 +34,7 @@ spec:
   generators:
     - list:
         elements:
-          - env: dev
+          - env: development
             namespace: astrolumina-development
             valuesFile: values-development.yaml
           - env: staging

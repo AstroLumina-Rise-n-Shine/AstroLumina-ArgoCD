@@ -156,10 +156,15 @@ Three things to know before creating it:
   created it. This matters because the Secret must exist **before** the
   first SYNC, and before that sync the namespace itself may not exist yet
   (it normally comes from `00-namespace.yaml` in each env).
-- The GitHub token needs only the `read:packages` scope. A token with
-  `$`, `!` or quotes still works: the quote splice `'...'"$VAR"'...'`
-  expands values locally, so special characters survive the SSH trip
-  intact, while the `|` pipe executes remotely on the control plane.
+- The GitHub token needs only the `read:packages` scope. The quote splice
+  `'...'"$VAR"'...'` expands the variables **locally**, but the assembled
+  string is then parsed a second time by the **remote** shell (the double
+  quotes are consumed on the laptop), so a value containing `$`, backticks
+  or backslashes would be re-interpreted there (`$x` silently expands to an
+  empty variable). GitHub tokens are plain alphanumerics and pass through
+  intact; if you ever splice another value, pre-escape it for the remote
+  shell first: `VAR="${VAR//$/\\$}"`. The `|` pipe still executes remotely
+  on the control plane.
 
 Run one block per environment (each uses its own Doppler config):
 

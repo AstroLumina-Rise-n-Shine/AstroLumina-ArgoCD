@@ -1,20 +1,3 @@
 # AstroLumina-ArgoCD
 
-> **Documentația completă a proiectului se află în [Wiki](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki).**
->
-> Acest fișier conține doar o referință rapidă. Toate detaliile arhitecturale, ghidurile de deployment, configurațiile de securitate și diagramele Mermaid sunt publicate în Wiki pentru o navigare ușoară și versionare istorică.
-
----
-
-## Quick Links
-
-- [Wiki Home](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki)
-- [Architecture](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki/Architecture) (dacă există)
-- [Development](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki/Development) (dacă există)
-- [Deployment](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki/Deployment) (dacă există)
-- [Security](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki/Security) (dacă există)
-
----
-
-*Ultima actualizare: 2026-10-23*
-
+Bootstrap and GitOps operations: [AstroLumina-ArgoCD Wiki](https://github.com/AstroLumina-Rise-n-Shine/AstroLumina-ArgoCD/wiki).

@@ -1,15 +1,16 @@
 # CI for the ArgoCD bootstrap repo: lint, build, schema-check, scan.
-# Runs on every push and pull request.
+# Runs validation for PRs targeting main; pushes to main are no-op runs.
 ---
-name: ArgoCD CI
+name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
-  security-events: write
 
 env:
   KUSTOMIZE_VERSION: v5.8.2
@@ -19,6 +20,7 @@ env:
 jobs:
   # YAML style consistency across install/ and apps/.
   yaml-lint:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -31,6 +33,7 @@ jobs:
   # The install/ kustomization (namespace + cluster-admin grant) must build.
   # Built output is kept for the schema job below.
   kustomize-build:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -52,6 +55,7 @@ jobs:
   # ApplicationSet CRD is served by ArgoCD itself, so it is skipped - no
   # public schema exists for it.
   kubeconform:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     needs: kustomize-build
     steps:
@@ -70,6 +74,7 @@ jobs:
 
   # Static analysis of the helper shell scripts (admin password rotation).
   shellcheck:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -85,7 +90,11 @@ jobs:
   # grant in install/ is intentional (see its comments), so gating on it
   # would fail by design. Findings still land in the Security tab via SARIF.
   trivy-config:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -105,6 +114,7 @@ jobs:
   # license on org repos). Full-history scan; verified clean, so no extra
   # config file is needed.
   gitleaks:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
